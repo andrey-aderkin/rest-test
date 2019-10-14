@@ -2,8 +2,6 @@ package resttest.api;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
-
 public class Booking {
 
     @JsonProperty("firstname")
@@ -32,9 +30,6 @@ public class Booking {
         this.depositPaid = depositPaid;
         this.bookingDates = bookingDates;
         this.additionalNeeds = additionalNeeds;
-    }
-
-    private Booking() {
     }
 
     public static class Builder {

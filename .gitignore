@@ -1,4 +1,7 @@
+/.idea
+/.metadata
 /.settings
 /allure-results
 /target
 /test-output
+log.txt
