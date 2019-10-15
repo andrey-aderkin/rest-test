@@ -1,9 +1,7 @@
 package resttest.test;
 
-import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.builder.ResponseSpecBuilder;
-import io.restassured.config.LogConfig;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
@@ -12,6 +10,8 @@ import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -19,34 +19,35 @@ import resttest.api.AuthResponse;
 import resttest.api.Booking;
 import resttest.api.BookingDates;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.PrintStream;
+import java.io.IOException;
 import java.time.LocalDate;
 
 import static io.restassured.RestAssured.given;
-import static resttest.test.BookerTestData.*;
+import static resttest.test.BookerTestData.INITIAL_AMOUNT;
+import static resttest.test.BookerTestData.UPDATED_AMOUNT;
 
 public class BookerTest {
     private static RequestSpecification requestSpec;
     private static ResponseSpecification responseSpec;
     private static Integer bookingId;
     private static Booking booking;
+    private BookerTestData bookerTestData;
+	private final static Logger logger = LoggerFactory.getLogger(BookerTest.class);
 
     public BookerTest() {
     }
 
     @BeforeClass
-    public void configureLogger() throws FileNotFoundException {
-        PrintStream printStream = new PrintStream(new FileOutputStream("log.txt", true));
-        RestAssured.config = RestAssured.config().logConfig(LogConfig.logConfig().defaultStream(printStream));
+    public void configureSystem() throws IOException {
+		bookerTestData = new BookerTestData();
+		logger.debug("Config created");
     }
 
     @BeforeClass
-    public void initRequestSpec() {
+    public void initRequestSpec() throws IOException{
         requestSpec = new RequestSpecBuilder()
 			.setContentType(ContentType.JSON)
-			.setBaseUri(BASE_URL)
+			.setBaseUri(bookerTestData.getBaseUrl())
 			.addFilter(new RequestLoggingFilter())
 			.addFilter(new ResponseLoggingFilter())
 			.build();
@@ -116,7 +117,8 @@ public class BookerTest {
 
     @Test(dependsOnMethods = "testPostBooking")
     public void testPartialUpdateExistingBooking() {
-        String token = AuthResponse.getToken(BASE_URL, ADM_USERNAME, ADM_PASSWORD);
+        String token = AuthResponse.getToken(bookerTestData.getBaseUrl(), bookerTestData.getAdmUsername(),
+				bookerTestData.getAdmPassword());
         given().
 			spec(requestSpec).
 			header("Cookie", "token=" + token).
@@ -132,7 +134,8 @@ public class BookerTest {
     @Test(dataProvider = "updatedBookingData", dependsOnMethods = "testPartialUpdateExistingBooking")
     public void testFullUpdateExistingBooking(String firstName, String lastName, int totalPrice, boolean isDepositPaid,
 											  String checkInDate, String checkOutDate, String additionalNeeds) {
-		String token = AuthResponse.getToken(BASE_URL, ADM_USERNAME, ADM_PASSWORD);
+		String token = AuthResponse.getToken(bookerTestData.getBaseUrl(), bookerTestData.getAdmUsername(),
+				bookerTestData.getAdmPassword());
     	BookingDates bookingDates = new BookingDates(checkInDate, checkOutDate);
 
         booking = new Booking.Builder()
@@ -164,7 +167,8 @@ public class BookerTest {
 
     @Test(dependsOnMethods = "testFullUpdateExistingBooking")
 	public void testDeleteBooking() {
-		String token = AuthResponse.getToken(BASE_URL, ADM_USERNAME, ADM_PASSWORD);
+		String token = AuthResponse.getToken(bookerTestData.getBaseUrl(), bookerTestData.getAdmUsername(),
+				bookerTestData.getAdmPassword());
 		given().
 			spec(requestSpec).
 			header("Cookie", "token=" + token).
