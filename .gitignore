@@ -2,6 +2,6 @@
 /.metadata
 /.settings
 /allure-results
+/logs
 /target
 /test-output
-log.txt

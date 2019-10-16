@@ -6,8 +6,8 @@ import io.restassured.http.ContentType;
 import static io.restassured.RestAssured.given;
 
 public class AuthResponse {
-    
-	@JsonProperty("token")
+
+    @JsonProperty("token")
     private String token;
 
     public static String getToken(String url, String userName, String password) {

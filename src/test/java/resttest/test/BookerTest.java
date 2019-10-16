@@ -2,6 +2,9 @@ package resttest.test;
 
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.builder.ResponseSpecBuilder;
+import io.restassured.config.LogConfig;
+import io.restassured.config.RestAssuredConfig;
+import io.restassured.filter.log.LogDetail;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
@@ -9,17 +12,16 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
 import org.apache.http.HttpStatus;
+import org.apache.logging.log4j.io.IoBuilder;
 import org.hamcrest.Matchers;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.testng.annotations.*;
 import resttest.api.AuthResponse;
 import resttest.api.Booking;
 import resttest.api.BookingDates;
 
 import java.io.IOException;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
 import java.time.LocalDate;
 
 import static io.restassured.RestAssured.given;
@@ -32,7 +34,9 @@ public class BookerTest {
     private static Integer bookingId;
     private static Booking booking;
     private BookerTestData bookerTestData;
-	private final static Logger logger = LoggerFactory.getLogger(BookerTest.class);
+
+	private PrintStream logStream;
+	private RestAssuredConfig restAssuredConfig;
 
     public BookerTest() {
     }
@@ -40,7 +44,13 @@ public class BookerTest {
     @BeforeClass
     public void configureSystem() throws IOException {
 		bookerTestData = new BookerTestData();
-		logger.debug("Config created");
+
+		logStream = IoBuilder.forLogger( ).buildPrintStream();
+		restAssuredConfig = new RestAssuredConfig();
+		LogConfig logConfig = restAssuredConfig.getLogConfig();
+		logConfig
+				.defaultStream(logStream)
+				.enablePrettyPrinting(true);
     }
 
     @BeforeClass
@@ -48,9 +58,12 @@ public class BookerTest {
         requestSpec = new RequestSpecBuilder()
 			.setContentType(ContentType.JSON)
 			.setBaseUri(bookerTestData.getBaseUrl())
-			.addFilter(new RequestLoggingFilter())
-			.addFilter(new ResponseLoggingFilter())
+			.addFilter(new RequestLoggingFilter().logRequestTo(logStream))
+			.addFilter(new ResponseLoggingFilter().logResponseTo(logStream))
+			.log(LogDetail.ALL)
+			.setConfig(restAssuredConfig)
 			.build();
+		logStream.println("========== initRequestSpec done ==========");
     }
 
     @BeforeClass
@@ -58,17 +71,31 @@ public class BookerTest {
         responseSpec = new ResponseSpecBuilder()
 			.expectStatusCode(200)
 			.expectContentType(ContentType.JSON)
+			.log(LogDetail.ALL)
 			.build();
+		logStream.println("========== initResponseSpec done ==========");
     }
+
+	@BeforeMethod
+	public void nameBefore(Method method)
+	{
+		logStream.println("========== "+method.getName()+" Started ==========");
+	}
+
+	@AfterMethod
+	public void nameAfter(Method method)
+	{
+		logStream.println("========== "+method.getName()+" Completed ==========");
+	}
 
     @Test
     public void testHealthCheckReturns201() {
+
         given().
 		when().
 			spec(requestSpec).
 			get("/ping").
 		then().
-			log().all().
 			assertThat().
 			statusCode(HttpStatus.SC_CREATED);
     }
@@ -80,7 +107,6 @@ public class BookerTest {
 			spec(requestSpec).
 			get("/booking").
 		then().
-			log().all().
 			assertThat().
 			spec(responseSpec).
 			body("isEmpty()", Matchers.is(false));
@@ -108,7 +134,6 @@ public class BookerTest {
 
         bookingResponse.
 			then().
-				log().all().
 				assertThat().
 				spec(responseSpec).
 				body("isEmpty()", Matchers.is(false));
@@ -125,7 +150,6 @@ public class BookerTest {
 			body("{\"totalprice\":" + UPDATED_AMOUNT + "}").
 			patch("/booking/" + bookingId).
 		then().
-			log().all().
 			assertThat().
 			spec(responseSpec).
 			body("totalprice", Matchers.equalTo(UPDATED_AMOUNT));
@@ -134,7 +158,7 @@ public class BookerTest {
     @Test(dataProvider = "updatedBookingData", dependsOnMethods = "testPartialUpdateExistingBooking")
     public void testFullUpdateExistingBooking(String firstName, String lastName, int totalPrice, boolean isDepositPaid,
 											  String checkInDate, String checkOutDate, String additionalNeeds) {
-		String token = AuthResponse.getToken(bookerTestData.getBaseUrl(), bookerTestData.getAdmUsername(),
+    	String token = AuthResponse.getToken(bookerTestData.getBaseUrl(), bookerTestData.getAdmUsername(),
 				bookerTestData.getAdmPassword());
     	BookingDates bookingDates = new BookingDates(checkInDate, checkOutDate);
 
@@ -156,7 +180,6 @@ public class BookerTest {
 
         bookingResponse.
 			then().
-				log().all().
 				assertThat().
 				spec(responseSpec).
 				body("totalprice", Matchers.equalTo(UPDATED_AMOUNT)).
@@ -174,7 +197,6 @@ public class BookerTest {
 			header("Cookie", "token=" + token).
 			delete("/booking/" + bookingId).
 		then().
-			log().all().
 			assertThat().
 			statusCode(HttpStatus.SC_CREATED);
 	}
@@ -185,7 +207,6 @@ public class BookerTest {
 			spec(requestSpec).
 			get("/booking/" + bookingId).
 		then().
-			log().all().
 			assertThat().
 			statusCode(HttpStatus.SC_NOT_FOUND);
 	}

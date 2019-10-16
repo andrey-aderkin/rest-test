@@ -6,7 +6,7 @@ public class BookingDates {
 
     @JsonProperty("checkin")
     private String checkInDate;
-    
+
     @JsonProperty("checkout")
     private String checkOutDate;
 
